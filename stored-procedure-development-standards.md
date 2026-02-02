@@ -1069,31 +1069,33 @@ END
 
 ## 程式碼品質規範
 
-### 1. 程式碼格式化
+### 1. 程式碼格式化（強制）
 
 **規範：**
-- 使用一致的縮排（建議 4 個空格）
-- 關鍵字使用大寫
+- 使用 4 個空白符號縮排（禁止使用 Tab 字元）
+- 關鍵字使用大寫（SELECT、FROM、WHERE、INSERT等）
 - 適當的空行分隔邏輯區塊
+- SQL 語句應該易於閱讀和維護
 
-**正確範例：**
+**排版規則：**
 ```sql
+-- ✅ 正確的排版
 CREATE PROCEDURE usp_Order_Insert
-    @CustomerID INT,
+    @CustomerID INT,                    -- 4 個空白縮排參數
     @OrderDate DATETIME,
     @OrderIDOutput INT OUTPUT
 AS
 BEGIN
-    SET NOCOUNT ON;
+    SET NOCOUNT ON;                     -- 第一層 4 個空白
     
     BEGIN TRY
-        BEGIN TRANSACTION;
+        BEGIN TRANSACTION;              -- 第二層 8 個空白
         
         -- 插入訂單
-        INSERT INTO Orders (CustomerID, OrderDate, Status)
+        INSERT INTO dbo.Orders (CustomerID, OrderDate, Status)
         VALUES (@CustomerID, @OrderDate, 'Pending');
         
-        -- 取得新訂單ID
+        -- 取得新訂單 ID
         SET @OrderIDOutput = SCOPE_IDENTITY();
         
         COMMIT TRANSACTION;
@@ -1110,6 +1112,23 @@ BEGIN
     END CATCH
 END
 ```
+
+**禁止使用 Tab：**
+```sql
+-- ❌ 錯誤：使用 Tab 字元
+-- (由於 Tab 字元無法在此顯示，但應避免）
+```
+
+**原因：**
+- 不同編輯器對 Tab 的顯示寬度不同，導致格式不一致
+- 使用空白符號可以保證所有環境下格式一致
+- 提高程式碼可讀性和團隊協作效率
+
+**建議工具：**
+- SQL Server Management Studio (SSMS) 的自動格式化功能
+- Poor Man's T-SQL Formatter
+- SQL Prompt
+
 
 ### 2. 避免過長的 Stored Procedure
 
@@ -1132,24 +1151,67 @@ END
 
 ---
 
-## 檢查清單
+## 程式碼審查檢查清單
 
 在提交 Stored Procedure 前，請確認：
 
+### 基本規範
 - [ ] 已加上 `usp_` 前綴
+- [ ] 命名符合規範（動詞 + 功能描述）
+- [ ] 沒有重複命名或功能重複的 SP
+- [ ] 所有資料表引用都使用 `dbo.` 前綴
+- [ ] 參數型別和長度與資料表欄位一致
+
+### 註解和文檔
 - [ ] 包含完整的標頭註解（作者、說明、參數、返回值、使用範例）
+- [ ] 複雜邏輯有適當的註解說明
+- [ ] 使用 NOLOCK 或迴圈時已註明原因
+
+### 效能優化
 - [ ] 使用 `SET NOCOUNT ON`
 - [ ] 沒有使用 `SELECT *`
 - [ ] 沒有使用舊式 JOIN 語法
 - [ ] 沒有在索引欄位上使用函數
-- [ ] 使用 TRY-CATCH 錯誤處理
-- [ ] 所有動態 SQL 都使用參數化查詢
+- [ ] WHERE 條件有使用索引（已檢查執行計畫）
 - [ ] 沒有使用 Cursor（或已註明必要原因）
-- [ ] Transaction 有適當的錯誤處理和 ROLLBACK
+- [ ] 大量資料處理使用臨時表而非資料表變數
+- [ ] 執行時間符合目標（< 10秒或更低）
+
+### 資料操作
+- [ ] Add/Update/Delete 操作使用 TRY-CATCH 和交易處理
+- [ ] 有資料異動的 SP 已記錄 Log（AuditLog/ErrorLog）
+- [ ] Log 寫入有包含足夠的資訊（操作人、時間、資料）
+- [ ] 避免不必要的「先刪後增」（使用 MERGE 或 IF EXISTS）
+- [ ] NOLOCK 僅用於 SELECT，且僅用於報表查詢
+
+### 安全性
+- [ ] 所有動態 SQL 都使用參數化查詢
 - [ ] 輸入參數已驗證
-- [ ] 程式碼已格式化且可讀性良好
-- [ ] 已測試執行計畫，確認使用適當的索引
+- [ ] 沒有 SQL Injection 風險
+
+### 程式碼品質
+- [ ] 程式碼已格式化（使用 4 個空白縮排，禁止 Tab）
 - [ ] 錯誤訊息清楚且有意義
+- [ ] SP 長度 < 300 行（超過應拆分）
+
+### 變更影響分析（修改現有 SP 時）
+- [ ] 已檢查參數變更影響
+- [ ] 已檢查返回值變更影響
+- [ ] 已檢查資料集結構變更
+- [ ] 已查找相依性（其他 SP、應用程式、排程）
+- [ ] 相依的 SP 已測試
+
+### 測試驗證
+- [ ] 已測試正常情境
+- [ ] 已測試異常情境（錯誤處理）
+- [ ] 已測試邊界値（NULL、空字串、極大/極小值）
+- [ ] 已檢查執行計畫，確認使用適當的索引
+- [ ] 已使用 SET STATISTICS TIME/IO 驗證效能
+
+---
+
+**✅ 全部確認完成後，即可提交 Code Review**
+
 
 ---
 
